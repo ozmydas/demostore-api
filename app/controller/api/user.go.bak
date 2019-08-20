@@ -1,0 +1,109 @@
+package api
+
+import (
+	_ "encoding/json"
+	"log"
+	"net/http"
+	"net/url"
+
+	"../../../app"
+	"../../lib"
+	"../../model"
+	"github.com/gorilla/mux"
+	"github.com/thedevsaddam/govalidator"
+)
+
+/******/
+
+// struct untuk menampung input post form
+
+type UserLoginInput struct {
+	Email, Password string
+}
+
+type UserRegisterInput struct {
+	Email, Password, VerifyPassword                                                              string
+	Fullname, Birthplace, Birthdate, Phone, Gender, Hobby, Lulusan                               string
+	Address, ProvinceId, CityId, BankName, BankAccount, BankRekening                             string
+	ImagesPath, ImagesFile, FilesIjazah, FilesSertifikat_1, FilesSertifikat_2, FilesSertifikat_3 string
+}
+
+/******/
+
+func UserLogin(e *app.Env, w http.ResponseWriter, r *http.Request) (int, error) {
+	// validasi form
+	isFormValid := UserValidateLogin(r)
+
+	if len(isFormValid) != 0 {
+		log.Printf("%+v", isFormValid)
+		lib.JsonRender(w, false, "FAIL", isFormValid, 101)
+		return 200, nil
+	}
+
+	// lookup ke table
+	result, err := model.ModUserAuth(tipeAkun, e.DB, w, r)
+
+	// err found
+	if err != nil {
+		lib.JsonRender(w, false, "Login Failed Error", err.Error(), 102)
+		return 200, nil
+	}
+
+	lib.JsonRender(w, true, "Login Success", result, 200)
+	return 200, nil
+}
+
+func UserRegister(e *app.Env, w http.ResponseWriter, r *http.Request) (int, error) {
+	// validasi form
+	isFormValid := UserValidateReg(r)
+
+	if len(isFormValid) != 0 {
+		log.Printf("%+v", isFormValid)
+		lib.JsonRender(w, false, "FAIL", isFormValid, 101)
+		return 200, nil
+	}
+
+	params := mux.Vars(r)
+	if params["tipe"] == "" {
+		lib.JsonRender(w, false, "User Type Not Defined", nil, 104)
+		return 200, nil
+	}
+
+	tipeAkun := params["tipe"]
+
+	// catat ke table
+	result, err := model.ModUserRegister(tipeAkun, e.DB, w, r)
+
+	// err found
+	if err != nil {
+		lib.JsonRender(w, false, "Register Failed Error", err.Error(), 102)
+		return 200, nil
+	}
+
+	lib.JsonRender(w, true, "Register Success", result, 200)
+	return 200, nil
+} // end func
+
+/******/
+
+/*** VALIDATOR ***/
+
+func UserValidateLogin(r *http.Request) url.Values {
+	rules := govalidator.MapData{
+		"email":    []string{"required"},
+		"password": []string{"required"},
+	}
+
+	return lib.UserExecuteValidator(rules, r)
+} // end func
+
+func UserValidateReg(r *http.Request) url.Values {
+	rules := govalidator.MapData{
+		"email":           []string{"required"},
+		"password":        []string{"required"},
+		"verify_password": []string{"required"},
+		"fullname":        []string{"required"},
+	}
+
+	return lib.UserExecuteValidator(rules, r)
+} // end func

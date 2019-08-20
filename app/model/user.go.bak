@@ -1,0 +1,311 @@
+package model
+
+import (
+	"errors"
+	"log"
+	"net/http"
+	"time"
+
+	"../lib"
+	"github.com/jinzhu/gorm"
+)
+
+type User struct {
+	Id                    int
+	Tipe                  string `gorm:"column:type"`
+	Code, Username, Email string
+	Password              string
+	CreatedDatetime       string
+}
+
+func (User) TableName() string {
+	return "t_user"
+}
+
+/****/
+
+type UserBiodata struct {
+	Id, UserId                                                                                   int
+	Fullname, Birthplace, Birthdate, Phone, Gender, Lulusan                                      string
+	Address, ProvinceId, CityId, BankName, BankAccount, BankRekening                             string
+	ImagesPath, ImagesFile, FilesIjazah, FilesSertifikat_1, FilesSertifikat_2, FilesSertifikat_3 string
+}
+
+func (UserBiodata) TableName() string {
+	return "t_user_biodata"
+}
+
+/********************************************/
+
+type Ada struct {
+	Id int
+}
+
+func IsUserValid(DB *gorm.DB, code string) (result interface{}, err error) {
+	query := `SELECT id FROM t_user WHERE code = ?`
+
+	var row []Ada
+	cek := DB.Raw(query, code).Scan(&row)
+
+	if cek.Error != nil {
+		return nil, cek.Error
+	}
+
+	if cek.RowsAffected < 1 {
+		return nil, errors.New("Code Not Valid")
+	}
+
+	return cek, nil
+} // end func
+
+func UserGetIdByCode(DB *gorm.DB, code string) (int, error) {
+	query := `SELECT id FROM t_user WHERE code = ? LIMIT 1`
+
+	var row []Ada
+	cek := DB.Raw(query, code).Scan(&row)
+
+	if cek.Error != nil {
+		return 0, cek.Error
+	}
+
+	if cek.RowsAffected < 1 {
+		return 0, errors.New("Code Not Valid")
+	}
+	// log.Printf("%+v", row)
+	return row[0].Id, nil
+} // end func
+
+/******/
+
+func UserGetActiveSession(w http.ResponseWriter, r *http.Request) map[string]interface{} {
+	sesi, err := lib.GetSession("userdata", w, r)
+
+	if err != nil {
+		return make(map[string]interface{})
+	}
+
+	sesi_arr := sesi.(map[string]interface{})
+	return sesi_arr
+}
+
+func UserGetActiveId(w http.ResponseWriter, r *http.Request) int {
+	sesi_arr := UserGetActiveSession(w, r)
+	return sesi_arr["ID"].(int)
+} // end func
+
+func UserGetActiveName(w http.ResponseWriter, r *http.Request) string {
+	sesi_arr := UserGetActiveSession(w, r)
+	return sesi_arr["username"].(string)
+} // end func
+
+/******/
+
+/******/
+
+func ModUserAuth(regisType string, DB *gorm.DB, w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	now := time.Now().Format("2006-01-02 15:04:05") // only date
+
+	// cari user by email
+	table := []User{}
+	proses := DB.Where("email = ?", r.PostFormValue("email")).First(&table)
+
+	// not found
+	if proses.RowsAffected == 0 || proses.Error != nil {
+		var msg error
+
+		if proses.Error != nil {
+			msg = proses.Error
+		} else {
+			msg = errors.New("USer Not Found")
+		}
+
+		return r.PostFormValue, msg
+	}
+
+	// type assertion biar index bisa dipanggil
+	users := proses.Value.(*[]User)
+	user_found := (*users)[0]
+
+	// match password
+
+	// update last login
+
+	// done
+	generatedToken, _ := lib.GenerateJWT("kode-user-001")
+
+	result := map[string]interface{}{
+		"Token":    generatedToken,
+		"Datetime": now,
+		"User":     user_found,
+		// "username": registeredUser.Username,
+		// "url":      "/profile?ref=" + token,
+	}
+
+	return result, nil
+} // end func
+
+func ModUserRegister(regisType string, DB *gorm.DB, w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	now := time.Now().Format("2006-01-02 15:04:05") // only date
+	yearmonth := time.Now().Format("0601")
+	generatedCode := yearmonth + lib.RandomString(8)
+	enkriptedPasswd := r.PostFormValue("password")
+
+	// assign post to struct
+	row := User{
+		Code:            generatedCode,
+		Tipe:            regisType,
+		Username:        r.PostFormValue("email"),
+		Email:           r.PostFormValue("email"),
+		Password:        enkriptedPasswd,
+		CreatedDatetime: now,
+	}
+
+	// tahap 0 : gunakan transaction
+	tx := DB.Begin()
+
+	// tahap 1 : simpan ke table user
+	save1 := tx.Create(&row)
+
+	// jika error
+	if save1.Error != nil {
+		tx.Rollback()
+		return r.PostFormValue, save1.Error
+	}
+
+	// tahap 1.5 : ambil data last insert user
+	registeredUSer := save1.Value.(*User)
+
+	// tahap 2 : simpan ke table biodata
+	bio := UserBiodata{
+		UserId:       registeredUSer.Id,
+		Fullname:     r.PostFormValue("fullname"),
+		Birthplace:   r.PostFormValue("birthplace"),
+		Birthdate:    r.PostFormValue("birthdate"),
+		Phone:        r.PostFormValue("phone"),
+		Gender:       r.PostFormValue("gender"),
+		Lulusan:      r.PostFormValue("lulusan"),
+		Address:      r.PostFormValue("address"),
+		ProvinceId:   r.PostFormValue("province_id"),
+		CityId:       r.PostFormValue("city_id"),
+		BankName:     r.PostFormValue("bank_name"),
+		BankAccount:  r.PostFormValue("bank_acc"),
+		BankRekening: r.PostFormValue("bank_rek"),
+	}
+
+	save2 := tx.Create(&bio)
+
+	// jika error
+	if save2.Error != nil {
+		tx.Rollback()
+		return r.PostFormValue, save2.Error
+	}
+
+	// tahap 3 : aman di commit
+	tx.Commit()
+
+	result := map[string]interface{}{
+		"Code":     generatedCode,
+		"username": registeredUSer.Username,
+		// "url":      "/profile?ref=" + token,
+	}
+
+	// done
+	return result, nil
+} // end func
+
+/******/
+
+func ModUserGetByCode(kode string, DB *gorm.DB, w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	// cari user by code dengan join ke biodata
+	query := `SELECT u.username, ub.fullname, ub.birthdate, ub.birthplace, ub.phone, ub.gender, ub.address, ub.lulusan, ub.province_id, ub.city_id, ub.images_path, ub.images_file, ub.files_ijazah, ub.files_sertifikat_1, ub.files_sertifikat_2, ub.files_sertifikat_3
+		FROM t_user u
+		JOIN t_user_biodata ub 
+		ON ub.user_id = u.id 
+		WHERE active = 1 AND code = ?`
+
+	var rows []UserBiodata
+	proses := DB.Raw(query, kode).Scan(&rows)
+
+	if proses.Error != nil {
+		return nil, proses.Error
+	}
+
+	if len(rows) == 0 {
+		return nil, errors.New("User Code " + kode + " Not Found")
+	}
+
+	return rows[0], nil
+} // end func
+
+/******/
+
+func ModUserUpdate(DB *gorm.DB, w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	// now := time.Now().Format("2006-01-02 15:04:05") // only date
+	// yearmonth := time.Now().Format("0601")
+	log.Println(r.PostFormValue("user_code"))
+
+	userId, err := UserGetIdByCode(DB, r.PostFormValue("user_code"))
+
+	// not found
+	if err != nil {
+		return r.PostFormValue, errors.New("User Not Found")
+	}
+
+	var bio UserBiodata
+	DB.Where("user_id = ?", userId).First(&bio)
+
+	bio.Fullname = r.PostFormValue("fullname")
+	bio.Birthplace = r.PostFormValue("birthplace")
+	bio.Birthdate = r.PostFormValue("birthdate")
+	bio.Phone = r.PostFormValue("phone")
+	bio.Gender = r.PostFormValue("gender")
+	bio.Lulusan = r.PostFormValue("lulusan")
+	bio.Address = r.PostFormValue("address")
+	bio.ProvinceId = r.PostFormValue("province_id")
+	bio.CityId = r.PostFormValue("city_id")
+	bio.BankName = r.PostFormValue("bank_name")
+	bio.BankAccount = r.PostFormValue("bank_acc")
+	bio.BankRekening = r.PostFormValue("bank_rek")
+
+	save := DB.Save(&bio)
+
+	if save.Error != nil {
+		return r.PostFormValue, save.Error
+	}
+
+	return bio, nil
+} // end func
+
+func ModUserReset(DB *gorm.DB, w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	// now := time.Now().Format("2006-01-02 15:04:05") // only date
+	// yearmonth := time.Now().Format("0601")
+
+	userId, _ := UserGetIdByCode(DB, r.PostFormValue("user_code"))
+
+	var user User
+	row := DB.Where("id = ?", userId).First(&user)
+
+	// not found
+	if row.RowsAffected == 0 || row.Error != nil {
+		var msg error
+
+		if row.RowsAffected == 0 {
+			msg = errors.New("User Not Found")
+		} else {
+			msg = row.Error
+		}
+
+		return r.PostFormValue, msg
+	}
+
+	new_password := r.PostFormValue("new_password")
+	user.Password = new_password
+
+	save := DB.Save(&user)
+
+	if save.Error != nil {
+		return r.PostFormValue, save.Error
+	}
+
+	return new_password, nil
+} // end func
