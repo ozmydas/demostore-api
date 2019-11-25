@@ -82,3 +82,25 @@ func ExecuteValidator(rules map[string][]string, r *http.Request) url.Values {
 func StrPadZero(value int) string {
 	return fmt.Sprintf("%02d", value)
 } // end func
+
+// this will turn integer to alphabet. ex : 1 to A, 2 to B, or 27 to AA
+func toCharStrArr(i int) string {
+	var arr = [...]string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+		"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+
+	if i > 26 {
+		puluhan := i / 26
+		selisih := i % 26
+
+		if selisih == 0 {
+			puluhan = puluhan - 1
+			selisih = 26
+		}
+
+		depan := toCharStrArr(puluhan)
+		belakang := toCharStrArr(selisih)
+		return depan + belakang
+	}
+
+	return arr[i-1]
+} // end func

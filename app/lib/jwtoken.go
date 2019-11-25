@@ -17,7 +17,7 @@ func GenerateJWT(usercode string) (string, error) {
 
 	claims := sign.Claims.(jwt.MapClaims)
 	claims["authorized"] = true
-	claims["usercode"] = usercode
+	claims["usercode"] = usercode // semisal id user atau code user
 	claims["expired"] = time.Now().Add(time.Minute * 60 * 24).Unix()
 
 	token, err := sign.SignedString(mySigningKey)
@@ -30,16 +30,19 @@ func GenerateJWT(usercode string) (string, error) {
 } // end func
 
 func AuthJWT(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	/* jika menggunakan request header */
 	// if r.Header["Token"] == nil {
 	// 	return "", errors.New("Missing Header")
 	// }
 	// http_token := r.Header["Token"][0]
 
+	/* jika menggunakan go session */
 	http_token, _ := GetSession("jwt_token", w, r)
 	if http_token == nil {
 		return "", errors.New("JWT : Missing Header Request Token")
 	}
 
+	/* jika menggunakan cookie */
 	// http_token, err := r.Cookie("jwt_token")
 	// if err != nil {
 	// 	return "", err

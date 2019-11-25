@@ -42,6 +42,9 @@ func main() {
 	// detail product
 	mx.Handle("/api/product/{id}", app.JwtMiddleware(app.Handler{context, api.ProductDetail})).Methods("GET")
 
+	// misc. list banner
+	mx.Handle("/api/banner", app.JwtMiddleware(app.Handler{context, api.MiscBanner})).Methods("GET")
+
 	/******/
 
 	// go app.HandleMessages()
