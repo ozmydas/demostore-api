@@ -19,7 +19,7 @@ type Banners struct {
 }
 
 func (Banners) TableName() string {
-	return "t_banner"
+	return "t_banners"
 } // end func
 
 /******/

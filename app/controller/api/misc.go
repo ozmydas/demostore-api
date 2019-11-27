@@ -10,12 +10,12 @@ import (
 	"../../../app"
 	"../../lib"
 	"../../model"
-	"github.com/gorilla/mux"
+	_ "github.com/gorilla/mux"
 )
 
 func MiscBanner(e *app.Env, w http.ResponseWriter, r *http.Request) (int, error) {
 	// lookup ke table
-	result, err := model.ModBannerList(e.DB, w, r)
+	result, count, err := model.ModBannerList(e.DB, w, r)
 
 	// err found
 	if err != nil {
@@ -23,6 +23,8 @@ func MiscBanner(e *app.Env, w http.ResponseWriter, r *http.Request) (int, error)
 		return 200, nil
 	}
 
-	lib.JsonRender(w, true, "Data Found", result, 200)
+	jml := strconv.FormatInt(count, 10)
+
+	lib.JsonRender(w, true, jml+" Data Found", result, 200)
 	return 200, nil
 }

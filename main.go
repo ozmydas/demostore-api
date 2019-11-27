@@ -36,6 +36,9 @@ func main() {
 	// login user
 	mx.Handle("/api/login", app.JwtMiddleware(app.Handler{context, api.MemberLogin})).Methods("POST")
 
+	// register user
+	mx.Handle("/api/register", app.JwtMiddleware(app.Handler{context, api.MemberRegister})).Methods("POST")
+
 	// list product
 	mx.Handle("/api/product", app.JwtMiddleware(app.Handler{context, api.ProductList})).Methods("POST")
 
@@ -44,6 +47,10 @@ func main() {
 
 	// misc. list banner
 	mx.Handle("/api/banner", app.JwtMiddleware(app.Handler{context, api.MiscBanner})).Methods("GET")
+
+	// profile
+	mx.Handle("/api/profile/update", app.JwtMiddleware(app.Handler{context, api.MemberUpdate})).Methods("POST")
+	mx.Handle("/api/profile/{id}", app.JwtMiddleware(app.Handler{context, api.MemberView})).Methods("POST")
 
 	/******/
 
