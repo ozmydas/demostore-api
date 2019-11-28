@@ -14,8 +14,8 @@ import (
 /******/
 
 type Products struct {
-	Id, Published, Price                                  int
-	Name, Thumbnail, Images, Description, CreatedDatetime string
+	Id, Published, Price                                            int
+	Name, Cat, Thumbnail, Img, Images, Description, CreatedDatetime string
 }
 
 func (Products) TableName() string {

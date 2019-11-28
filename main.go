@@ -52,6 +52,10 @@ func main() {
 	mx.Handle("/api/profile/update", app.JwtMiddleware(app.Handler{context, api.MemberUpdate})).Methods("POST")
 	mx.Handle("/api/profile/{id}", app.JwtMiddleware(app.Handler{context, api.MemberView})).Methods("POST")
 
+	// cart
+	mx.Handle("/api/cart/add", app.JwtMiddleware(app.Handler{context, api.CartAdd})).Methods("POST")
+	mx.Handle("/api/cart/view/{id}", app.JwtMiddleware(app.Handler{context, api.CartView})).Methods("GET")
+
 	/******/
 
 	// go app.HandleMessages()
